@@ -2,11 +2,12 @@ CC := gcc
 CFLAGS := -std=c99 -Wall -Wextra -Wpedantic -Werror -Iinclude -O2
 LDFLAGS := -lm
 
-SRC := src/scurve.c src/trajectory.c
+SRC := src/scurve.c src/trajectory.c src/sequence.c
 BUILD_DIR := build
 
 TEST_SCURVE := $(BUILD_DIR)/test_scurve
 TEST_TRAJ := $(BUILD_DIR)/test_trajectory
+TEST_SEQ := $(BUILD_DIR)/test_sequence
 
 all: test
 
@@ -19,7 +20,10 @@ $(TEST_SCURVE): $(SRC) tests/test_scurve.c | $(BUILD_DIR)
 $(TEST_TRAJ): $(SRC) tests/test_trajectory.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-test: $(TEST_SCURVE) $(TEST_TRAJ)
+$(TEST_SEQ): $(SRC) tests/test_sequence.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
+test: $(TEST_SCURVE) $(TEST_TRAJ) $(TEST_SEQ)
 
 clean:
 	rm -rf $(BUILD_DIR)
