@@ -63,7 +63,7 @@ bool sequence_init(sequence_t *seq,
                    scurve_mode_t mode,
                    bool loop);
 
-/* Start or restart the sequence from its current point. */
+/* Start or resume the sequence from its current point. */
 void sequence_start(sequence_t *seq);
 
 /* Stop the sequence without clearing its current output values. */
@@ -71,6 +71,9 @@ void sequence_stop(sequence_t *seq);
 
 /* Advance all active axes by dt seconds and start the next segment when needed. */
 void sequence_update(sequence_t *seq, float dt);
+
+/* Change the active segment's S-curve mode immediately while preserving the current position. */
+void sequence_set_mode(sequence_t *seq, scurve_mode_t mode);
 
 /* Return the current output value for one axis, or 0.0f if the index is invalid. */
 float sequence_get_axis(const sequence_t *seq, size_t axis_index);

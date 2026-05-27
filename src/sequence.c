@@ -57,7 +57,7 @@ bool sequence_init(sequence_t *seq,
         seq->points[i] = points[i];
     }
 
-    sequence_start(seq);
+    start_segment(seq, 0u);
     return true;
 }
 
@@ -66,7 +66,7 @@ void sequence_start(sequence_t *seq)
     if (seq == 0) {
         return;
     }
-    start_segment(seq, 0u);
+    seq->active = true;
 }
 
 void sequence_stop(sequence_t *seq)
@@ -103,6 +103,42 @@ void sequence_update(sequence_t *seq, float dt)
     }
 
     start_segment(seq, ni);
+}
+
+void sequence_set_mode(sequence_t *seq, scurve_mode_t mode)
+{
+    if (seq == NULL || !seq->active) {
+        return;
+    }
+
+    seq->mode = mode;
+
+    unsigned int next_index = seq->current_index + 1;
+
+    if (next_index >= seq->point_count) {
+        if (seq->loop) {
+            next_index = 0;
+        } else {
+            return;
+        }
+    }
+
+    for (unsigned int axis = 0; axis < seq->axis_count; axis++) {
+        trajectory_t *traj = &seq->axes[axis];
+
+        float remaining_s = traj->duration_s - traj->elapsed_s;
+
+        if (remaining_s <= 0.0f) {
+            remaining_s = 0.001f;
+        }
+
+        trajectory_retarget_from_current(
+            traj,
+            seq->points[next_index].value[axis],
+            remaining_s,
+            mode
+        );
+    }
 }
 
 float sequence_get_axis(const sequence_t *seq, size_t axis_index)
