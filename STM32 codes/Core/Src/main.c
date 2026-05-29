@@ -44,7 +44,7 @@
 /* USER CODE BEGIN PD */
 #define HIP_CHANNEL    TIM_CHANNEL_1
 #define KNEE_CHANNEL   TIM_CHANNEL_2
-#define ANKLE_CHANNEL  TIM_CHANNEL_2
+#define ANKLE_CHANNEL  TIM_CHANNEL_3
 
 //HAL Tick are 1ms each
 #define CONTROL_PERIOD 10u
@@ -133,15 +133,21 @@ int main(void)
   update_speed_text();
   //Calibrate Servo angle range and pulse
   servo_cal_init(&hip_cal,  0.0f, 180.0f, 500, 2500, false);
-  servo_cal_init(&knee_cal,  0.0f, 180.0f, 500, 2500, false);
-  servo_cal_init(&ankle_cal,  0.0f, 180.0f, 500, 2500, false);
+  servo_cal_init(&knee_cal,  0.0f, 180.0f, 500, 2500, true);
+  servo_cal_init(&ankle_cal,  0.0f, 180.0f, 500, 2500, true);
 
   const sequence_point_t triangle[] = {
           /* hip, knee, unused */
-          { .value = { 0.0f, 80.0f, 0.0f }, .duration_to_next_s = 5 },
-          { .value = {180.0f, 80.0f, 0.0f }, .duration_to_next_s = 5 }
+          { .value = { 40.914f,  82.538f,  84.545f }, .duration_to_next_s = 2 },
+          { .value = {139.086f,  82.538f,  84.545f }, .duration_to_next_s = 2 },
+		  { .value = { 90.000f, 129.149f, 138.414f }, .duration_to_next_s = 2 }
       };
-  sequence_init(&leg_seq, triangle, 2u, 2u, selected_mode, true);
+//  const sequence_point_t triangle[] = {
+//		/* hip, knee, unused */
+//		{ .value = { 90.0f,  90.0f,  90.0f }, .duration_to_next_s = 1 },
+//		{ .value = { 120.0f,  120.0f,  120.0f }, .duration_to_next_s = 1 }
+//	};
+  sequence_init(&leg_seq, triangle, 3u, 3u, selected_mode, true);
   update_active_text(false);
   sequence_stop(&leg_seq);
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
@@ -164,7 +170,6 @@ int main(void)
 		  //Button press set mode and start/stop
 		  buttons_update();
 		  if (buttons_checkButton(UP) == PUSHED) {
-			  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 			  selected_mode = (selected_mode + 1) % 3;
 			  update_mode_text();
 			  sequence_set_mode(&leg_seq, selected_mode);
@@ -182,7 +187,7 @@ int main(void)
 				  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
 				  update_active_text(true);
 				  sequence_start(&leg_seq);
-				  last_tick_ms = HAL_GetTick();
+				  last_tick_ms = now;
 			  }
 		  }
 		  //Potentiometer set speed
@@ -195,12 +200,14 @@ int main(void)
 		  last_tick_ms = now;
 		  sequence_update(&leg_seq, dt * speed_scale);
 		  //Set new servo angle
-		  const float hip_angle = sequence_get_axis(&leg_seq, 0u);
-		  const float knee_angle = sequence_get_axis(&leg_seq, 1u);
-		  const float ankle_angle = sequence_get_axis(&leg_seq, 2u);
-		  __HAL_TIM_SET_COMPARE(&htim3, HIP_CHANNEL, servo_angle_to_us(&hip_cal, hip_angle));
-		  __HAL_TIM_SET_COMPARE(&htim3, KNEE_CHANNEL, servo_angle_to_us(&knee_cal, knee_angle));
-		  __HAL_TIM_SET_COMPARE(&htim3, ANKLE_CHANNEL, servo_angle_to_us(&ankle_cal, ankle_angle));
+		  if (sequence_is_active(&leg_seq)){
+			  const float hip_angle = sequence_get_axis(&leg_seq, 0u);
+			  const float knee_angle = sequence_get_axis(&leg_seq, 1u);
+			  const float ankle_angle = sequence_get_axis(&leg_seq, 2u);
+			  __HAL_TIM_SET_COMPARE(&htim3, HIP_CHANNEL, servo_angle_to_us(&hip_cal, hip_angle));
+			  __HAL_TIM_SET_COMPARE(&htim3, KNEE_CHANNEL, servo_angle_to_us(&knee_cal, knee_angle));
+			  __HAL_TIM_SET_COMPARE(&htim3, ANKLE_CHANNEL, servo_angle_to_us(&ankle_cal, ankle_angle));
+		  }
 	  }
 
     /* USER CODE END WHILE */
@@ -252,35 +259,35 @@ void SystemClock_Config(void)
 void update_mode_text()
 {
   ssd1306_SetCursor(0, 0);
-  ssd1306_WriteString("S-Curve Mode:", Font_7x10, White);
-  ssd1306_SetCursor(5, 10);
+  ssd1306_WriteString("S-Curve Mode:", Font_6x8, White);
+  ssd1306_SetCursor(5, 8);
   if (selected_mode == 0) {
-	  ssd1306_WriteString("Linear", Font_7x10, White);
+	  ssd1306_WriteString("Linear", Font_6x8, White);
   }
   else if (selected_mode == 1) {
-	  ssd1306_WriteString("Cubic", Font_7x10, White);
+	  ssd1306_WriteString("Cubic", Font_6x8, White);
   }
   else if (selected_mode == 2) {
-  	  ssd1306_WriteString("Quintic", Font_7x10, White);
+  	  ssd1306_WriteString("Quintic", Font_6x8, White);
     }
 }
 void update_speed_text()
 {
   char buffer[20];
-  ssd1306_SetCursor(0, 25);
-  ssd1306_WriteString("Speed Scale:", Font_7x10, White);
-  ssd1306_SetCursor(5, 35);
-  snprintf(buffer, 20, "%5.2f (%4u/%4u)", speed_scale, raw_adc[0], 4095u);
-  ssd1306_WriteString(buffer, Font_7x10, White);
+  ssd1306_SetCursor(0, 20);
+  ssd1306_WriteString("Speed Scale:", Font_6x8, White);
+  ssd1306_SetCursor(5, 28);
+  snprintf(buffer, 20, "%4.2f (%4u/%4u)", speed_scale, raw_adc[0], 4095u);
+  ssd1306_WriteString(buffer, Font_6x8, White);
 }
 void update_active_text(bool active)
 {
-  ssd1306_SetCursor(0, 50);
+  ssd1306_SetCursor(70, 55);
   if (active) {
-	  ssd1306_WriteString("Running", Font_7x10, White);
+	  ssd1306_WriteString("Running", Font_6x8, White);
   }
   else {
-	  ssd1306_WriteString("Stopped", Font_7x10, White);
+	  ssd1306_WriteString("Stopped", Font_6x8, White);
   }
 
 }
